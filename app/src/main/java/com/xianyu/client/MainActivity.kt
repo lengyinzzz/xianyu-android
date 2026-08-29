@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun AppNav() {
-        var stage by remember { mutableStateOf("loading") } // loading / server / login / main
+        var stage by remember { mutableStateOf("loading") }
         var savedUrl by remember { mutableStateOf("") }
 
         LaunchedEffect(Unit) {
@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
         }
 
         when (stage) {
-            "loading" -> { /* wait */ }
+            "loading" -> { }
             "server" -> {
                 ServerConfigScreen(
                     initialUrl = savedUrl,
@@ -99,82 +99,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 )
-            }
-        }
-    }
-}
-        var stage by remember { mutableStateOf("loading") } // loading / server / login / main / accounts
-        var savedUrl by remember { mutableStateOf("") }
-
-        LaunchedEffect(Unit) {
-            val url = prefs.getBaseUrl()
-            val token = prefs.getToken()
-            savedUrl = url
-            if (url.isBlank()) {
-                stage = "server"
-            } else {
-                RetrofitClient.setBaseUrl(url)
-                if (!token.isNullOrBlank()) {
-                    RetrofitClient.setToken(token)
-                    // 尝试验证 token
-                    try {
-                        val v = RetrofitClient.api().verifyToken()
-                        stage = if (v.authenticated) "main" else "login"
-                    } catch (_: Exception) {
-                        stage = "login"
-                    }
-                } else {
-                    stage = "login"
-                }
-            }
-        }
-
-        when (stage) {
-            "loading" -> {
-                // 简单空白，等待初始化
-            }
-            "server" -> {
-                ServerConfigScreen(
-                    initialUrl = savedUrl,
-                    onSave = { url ->
-                        lifecycleScope.launch {
-                            prefs.saveBaseUrl(url)
-                            RetrofitClient.setBaseUrl(url)
-                            savedUrl = url
-                            stage = "login"
-                        }
-                    }
-                )
-            }
-            "login" -> {
-                LoginScreen(
-                    onLoginSuccess = {
-                        lifecycleScope.launch {
-                            val token = RetrofitClient.getToken()
-                            if (token != null) {
-                                prefs.saveAuth(token, null, null)
-                            }
-                            stage = "main"
-                        }
-                    },
-                    onChangeServer = { stage = "server" }
-                )
-            }
-            "main" -> {
-                DashboardScreen(
-                    onLogout = {
-                        lifecycleScope.launch {
-                            try { RetrofitClient.api().logout() } catch (_: Exception) {}
-                            RetrofitClient.setToken(null)
-                            prefs.clearAuth()
-                            stage = "login"
-                        }
-                    },
-                    onOpenAccounts = { stage = "accounts" }
-                )
-            }
-            "accounts" -> {
-                AccountsScreen(onBack = { stage = "main" })
             }
         }
     }

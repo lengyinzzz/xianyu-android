@@ -10,9 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -93,7 +90,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onChangeServer: () -> Unit) {
         Spacer(Modifier.height(32.dp))
         OutlinedTextField(username, { username = it; error = null }, label = { Text("用户名") }, singleLine = true, modifier = Modifier.fillMaxWidth(), leadingIcon = { Icon(Icons.Default.Person, null) })
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(password, { password = it; error = null }, label = { Text("密码") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), leadingIcon = { Icon(Icons.Default.Password, null) })
+        OutlinedTextField(password, { password = it; error = null }, label = { Text("密码") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), leadingIcon = { Icon(Icons.Default.Lock, null) })
         if (error != null) {
             Spacer(Modifier.height(8.dp))
             Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -127,11 +124,11 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onChangeServer: () -> Unit) {
 
 // ========== 主界面带底部导航 ==========
 enum class MainTab(val label: String, val icon: ImageVector) {
-    Dashboard("控制台", Icons.Default.Dashboard),
+    Dashboard("控制台", Icons.Default.Home),
     Chat("聊天", Icons.Default.Chat),
-    Products("商品", Icons.Default.Inventory2),
-    Cards("卡券", Icons.Default.ConfirmationNumber),
-    Orders("订单", Icons.Default.ReceiptLong),
+    Products("商品", Icons.Default.ShoppingCart),
+    Cards("卡券", Icons.Default.Star),
+    Orders("订单", Icons.Default.List),
     Risk("风控", Icons.Default.Security)
 }
 
@@ -198,7 +195,7 @@ fun DashboardContent(onLogout: () -> Unit) {
                 title = { Text("控制台") },
                 actions = {
                     IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, "刷新") }
-                    IconButton(onClick = onLogout) { Icon(Icons.AutoMirrored.Filled.Logout, "退出") }
+                    IconButton(onClick = onLogout) { Icon(Icons.Default.ExitToApp, "退出") }
                 }
             )
         }
@@ -276,13 +273,10 @@ fun ChatScreen() {
         scope.launch {
             loading = true; error = null
             try {
-                val raw = RetrofitClient.api().getChatAccounts(1, 50)
-                val dataEl = raw["data"]
-                val list: List<ChatAccount> = when (dataEl) {
-                    is List<*> -> gson.fromJson(gson.toJson(dataEl), object : TypeToken<List<ChatAccount>>() {}.type)
-                    else -> emptyList()
-                }
-                accounts = list
+                val body = RetrofitClient.api().getChatAccountsRaw(1, 50).string()
+                val root = gson.fromJson(body, com.google.gson.JsonObject::class.java)
+                val arr = root.getAsJsonArray("data") ?: root.getAsJsonArray("accounts")
+                accounts = if (arr != null) gson.fromJson(arr, object : TypeToken<List<ChatAccount>>() {}.type) else emptyList()
             } catch (e: Exception) { error = e.message }
             finally { loading = false }
         }
@@ -292,12 +286,10 @@ fun ChatScreen() {
         scope.launch {
             loading = true; error = null
             try {
-                val raw = RetrofitClient.api().getConversations(acc.accountId)
-                val convEl = raw["conversations"] ?: raw["data"]
-                conversations = when (convEl) {
-                    is List<*> -> gson.fromJson(gson.toJson(convEl), object : TypeToken<List<Conversation>>() {}.type)
-                    else -> emptyList()
-                }
+                val body = RetrofitClient.api().getConversationsRaw(acc.accountId).string()
+                val root = gson.fromJson(body, com.google.gson.JsonObject::class.java)
+                val arr = root.getAsJsonArray("conversations") ?: root.getAsJsonArray("data")
+                conversations = if (arr != null) gson.fromJson(arr, object : TypeToken<List<Conversation>>() {}.type) else emptyList()
             } catch (e: Exception) { error = e.message }
             finally { loading = false }
         }
@@ -307,12 +299,10 @@ fun ChatScreen() {
         scope.launch {
             loading = true; error = null
             try {
-                val raw = RetrofitClient.api().getMessages(acc.accountId, conv.cid)
-                val msgEl = raw["messages"] ?: raw["data"]
-                messages = when (msgEl) {
-                    is List<*> -> gson.fromJson(gson.toJson(msgEl), object : TypeToken<List<ChatMessage>>() {}.type)
-                    else -> emptyList()
-                }
+                val body = RetrofitClient.api().getMessagesRaw(acc.accountId, conv.cid).string()
+                val root = gson.fromJson(body, com.google.gson.JsonObject::class.java)
+                val arr = root.getAsJsonArray("messages") ?: root.getAsJsonArray("data")
+                messages = if (arr != null) gson.fromJson(arr, object : TypeToken<List<ChatMessage>>() {}.type) else emptyList()
             } catch (e: Exception) { error = e.message }
             finally { loading = false }
         }
@@ -334,7 +324,7 @@ fun ChatScreen() {
                         }},
                         navigationIcon = {
                             IconButton(onClick = { selectedConv = null; messages = emptyList() }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
+                                Icon(Icons.Default.ArrowBack, "返回")
                             }
                         },
                         actions = {
@@ -356,7 +346,7 @@ fun ChatScreen() {
                                     loadMessages(acc, conv)
                                 } catch (e: Exception) { error = e.message }
                             }
-                        }) { Icon(Icons.AutoMirrored.Filled.Send, "发送", tint = MaterialTheme.colorScheme.primary) }
+                        }) { Icon(Icons.Default.Send, "发送", tint = MaterialTheme.colorScheme.primary) }
                     }
                 }
             ) { p ->
@@ -391,7 +381,7 @@ fun ChatScreen() {
                         title = { Text(acc.displayName ?: acc.accountId) },
                         navigationIcon = {
                             IconButton(onClick = { selectedAccount = null; conversations = emptyList() }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
+                                Icon(Icons.Default.ArrowBack, null)
                             }
                         },
                         actions = {
@@ -404,7 +394,7 @@ fun ChatScreen() {
                                         loadAccounts()
                                     } catch (e: Exception) { error = e.message }
                                 }
-                            }) { Icon(if (acc.connected) Icons.Default.LinkOff else Icons.Default.Link, null) }
+                            }) { Icon(if (acc.connected) Icons.Default.Link else Icons.Default.Link, null) }
                         }
                     )
                 }
@@ -702,7 +692,7 @@ fun OrdersScreen() {
 fun RiskLogsScreen() {
     var logs by remember { mutableStateOf<List<RiskLogItem>>(emptyList()) }
     var total by remember { mutableStateOf(0) }
-    var offset by remember { mutableIntStateOf(0) }
+    var offset by remember { mutableStateOf(0) }
     val limit = 20
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }

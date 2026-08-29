@@ -30,6 +30,8 @@ data class VerifyResponse(
 )
 
 // ========== Common ==========
+class EmptyData
+
 data class ApiResponse<T>(
     val success: Boolean = true,
     val message: String? = null,

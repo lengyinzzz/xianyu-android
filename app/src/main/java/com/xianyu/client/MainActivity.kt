@@ -1,9 +1,13 @@
 package com.xianyu.client
 
 import android.os.Bundle
+import android.os.Build
+import android.view.View
+import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -20,7 +24,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // 全屏内容区域，状态栏仅系统图标，应用内容不顶到状态栏里
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = true
         prefs = (application as XianyuApp).prefs
 
         setContent {
@@ -34,7 +41,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun AppNav() {
-        var stage by remember { mutableStateOf("loading") }
+        var stage by remember { mutableStateOf("loading") } // loading / server / login / main
         var savedUrl by remember { mutableStateOf("") }
 
         LaunchedEffect(Unit) {
@@ -60,7 +67,7 @@ class MainActivity : ComponentActivity() {
         }
 
         when (stage) {
-            "loading" -> { }
+            "loading" -> { /* wait */ }
             "server" -> {
                 ServerConfigScreen(
                     initialUrl = savedUrl,

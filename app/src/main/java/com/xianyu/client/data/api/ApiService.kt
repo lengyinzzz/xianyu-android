@@ -88,6 +88,16 @@ interface ApiService {
         @Query("search") search: String? = null
     ): OrderListResponse
 
+    
+    @GET("/api/v1/cookies/stats")
+    suspend fun getAccountStats(): ApiResponse<AccountStats>
+
+    @GET("/api/v1/cookies/stats/order-trend")
+    suspend fun getOrderTrend(): ApiResponse<OrderTrendData>
+
+    @POST("/api/v1/auto-rate/batch-rate")
+    suspend fun batchRateOrders(@Body body: Map<String, List<String>>): BatchRateResponse
+
     @GET("/api/v1/risk-control-logs")
     suspend fun getRiskLogs(
         @Query("limit") limit: Int = 20,

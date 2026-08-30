@@ -50,6 +50,36 @@ private fun orderStatusCn(s: String?): String = when (s?.lowercase()) {
     else -> s
 }
 
+/** 风控处理状态中文 */
+private fun riskStatusCn(s: String?): String {
+    if (s.isNullOrBlank()) return "未知"
+    val lower = s.lowercase()
+    return when {
+        lower.contains("success") || lower == "ok" || lower == "passed" -> "成功"
+        lower.contains("fail") || lower.contains("error") -> "失败"
+        lower.contains("pending") || lower.contains("processing") || lower.contains("running") -> "处理中"
+        lower.contains("skip") -> "已跳过"
+        lower.contains("timeout") -> "超时"
+        else -> s
+    }
+}
+
+/** 风控调用类型中文 */
+private fun riskCallTypeCn(s: String?): String {
+    if (s.isNullOrBlank()) return "风控事件"
+    val lower = s.lowercase()
+    return when {
+        lower.contains("slider") || lower.contains("captcha") || lower.contains("滑块") -> "滑块验证"
+        lower.contains("login") -> "登录风控"
+        lower.contains("punish") -> "处罚页"
+        lower.contains("face") -> "人脸验证"
+        lower.contains("token") -> "Token刷新"
+        lower.contains("publish") -> "发布相关"
+        lower.contains("message") || lower.contains("chat") -> "消息相关"
+        else -> s
+    }
+}
+
 /** 发货方式中文 */
 private fun deliveryMethodCn(s: String?): String = when (s?.lowercase()) {
     "auto" -> "自动发货"
@@ -274,7 +304,12 @@ fun DashboardContent(onLogout: () -> Unit) {
     var services by remember { mutableStateOf<List<ServiceStatusItem>>(emptyList()) }
     var runtime by remember { mutableStateOf<String?>(null) }
     var accounts by remember { mutableStateOf<List<AccountOption>>(emptyList()) }
+    var stats by remember { mutableStateOf<AccountStats?>(null) }
+    var trendTotal by remember { mutableStateOf(0.0) }
+    var trendDays by remember { mutableStateOf(0) }
+    var todayAmount by remember { mutableStateOf(0.0) }
     var loading by remember { mutableStateOf(true) }
+    var rating by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -288,6 +323,17 @@ fun DashboardContent(onLogout: () -> Unit) {
                     runtime = resp.data.runtime
                 }
                 accounts = try { RetrofitClient.api().getAccountOptions() } catch (_: Exception) { emptyList() }
+                try {
+                    val s = RetrofitClient.api().getAccountStats()
+                    if (s.success) stats = s.data
+                } catch (_: Exception) {}
+                try {
+                    val tr = RetrofitClient.api().getOrderTrend()
+                    val list = tr.data?.trend ?: emptyList()
+                    trendDays = list.size
+                    trendTotal = list.sumOf { it.amount }
+                    todayAmount = list.lastOrNull()?.amount ?: 0.0
+                } catch (_: Exception) {}
             } catch (e: Exception) { message = e.message }
             finally { loading = false }
         }
@@ -306,7 +352,31 @@ fun DashboardContent(onLogout: () -> Unit) {
         }
     ) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // 资金统计
             item {
+                Text("资金统计", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatCard("近${if (trendDays > 0) trendDays else "-"}日成交", "¥${"%.2f".format(trendTotal)}", Modifier.weight(1f))
+                    StatCard("最近一日", "¥${"%.2f".format(todayAmount)}", Modifier.weight(1f))
+                }
+            }
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatCard("总订单", "${stats?.totalOrders ?: "-"}", Modifier.weight(1f))
+                    StatCard("今日回复", "${stats?.todayReplyCount ?: "-"}", Modifier.weight(1f))
+                }
+            }
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatCard("账号数", "${stats?.totalAccounts ?: accounts.size}", Modifier.weight(1f))
+                    StatCard("启用中", "${stats?.activeAccounts ?: "-"}", Modifier.weight(1f))
+                }
+            }
+
+            item {
+                Spacer(Modifier.height(4.dp))
                 Text("服务状态", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 if (runtime != null) Text("运行环境: $runtime", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.6f))
             }
@@ -336,22 +406,55 @@ fun DashboardContent(onLogout: () -> Unit) {
                     }
                 }
             }
+
             item {
                 Spacer(Modifier.height(8.dp))
-                Text("账号概览 (${accounts.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("账号概览 (${accounts.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(6.dp))
+                Button(
+                    onClick = {
+                        if (accounts.isEmpty()) {
+                            message = "暂无账号"
+                            return@Button
+                        }
+                        rating = true
+                        scope.launch {
+                            try {
+                                val ids = accounts.map { it.id }
+                                val r = RetrofitClient.api().batchRateOrders(mapOf("account_ids" to ids))
+                                message = if (r.success) {
+                                    val d = r.data
+                                    "补评价完成：成功 ${d?.totalRated ?: 0}，失败 ${d?.totalFailed ?: 0}"
+                                } else (r.message ?: "补评价失败")
+                            } catch (e: Exception) {
+                                message = e.message ?: "补评价请求失败"
+                            } finally {
+                                rating = false
+                            }
+                        }
+                    },
+                    enabled = !rating,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (rating) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(if (rating) "正在补评价..." else "订单补评价（全部账号）")
+                }
             }
-            items(accounts.take(30)) { acc ->
+            items(accounts.take(50)) { acc ->
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(acc.id, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (!acc.remark.isNullOrBlank()) Text(acc.remark, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.55f))
+                            if (!acc.remark.isNullOrBlank()) Text(acc.remark!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.55f))
                         }
-                        AssistChip(onClick = {}, label = { Text(if (acc.enabled) "启用" else "禁用") },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = if (acc.enabled) Color(0xFFE6F7FF) else Color(0xFFFFF1F0),
-                                labelColor = if (acc.enabled) Color(0xFF1677FF) else Color(0xFFFF4D4F)
-                            ))
+                        if (acc.online == true) {
+                            Text("在线", color = Color(0xFF52C41A), fontSize = 12.sp)
+                        }
                     }
                 }
             }
@@ -360,6 +463,18 @@ fun DashboardContent(onLogout: () -> Unit) {
     }
 }
 
+@Composable
+private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
+    Card(modifier = modifier, shape = RoundedCornerShape(12.dp)) {
+        Column(Modifier.padding(12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.55f))
+            Spacer(Modifier.height(4.dp))
+            Text(value, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        }
+    }
+}
+
+// ========== 在线聊天
 // ========== 在线聊天 ==========
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -435,7 +550,8 @@ fun ChatScreen() {
                     root.get("data")?.isJsonArray == true -> root.getAsJsonArray("data")
                     else -> null
                 }
-                messages = if (arr != null) gson.fromJson(arr, object : TypeToken<List<ChatMessage>>() {}.type) else emptyList()
+                val list: List<ChatMessage> = if (arr != null) gson.fromJson(arr, object : TypeToken<List<ChatMessage>>() {}.type) else emptyList()
+                messages = list.sortedBy { it.time }
             } catch (e: Exception) { error = e.message }
             finally { loading = false }
         }
@@ -487,7 +603,13 @@ fun ChatScreen() {
                     }
                 }
             ) { p ->
-                LazyColumn(Modifier.fillMaxSize().padding(p).padding(horizontal = 12.dp), reverseLayout = false) {
+                val listState = rememberLazyListState()
+                LaunchedEffect(messages.size) {
+                    if (messages.isNotEmpty()) {
+                        listState.animateScrollToItem(messages.lastIndex)
+                    }
+                }
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(p).padding(horizontal = 12.dp)) {
                     items(messages) { msg ->
                         val isSelf = msg.isSelf
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = if (isSelf) Arrangement.End else Arrangement.Start) {
@@ -725,11 +847,7 @@ fun CardsScreen() {
                                     Text("类型: ${c.type ?: "-"} · ID: ${c.id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.55f))
                                     if (!c.description.isNullOrBlank()) Text(c.description!!, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
-                                AssistChip(onClick = {}, label = { Text(if (c.enabled != false) "启用" else "禁用") },
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = if (c.enabled != false) Color(0xFFE6F7FF) else Color(0xFFFFF1F0),
-                                        labelColor = if (c.enabled != false) Color(0xFF1677FF) else Color(0xFFFF4D4F)
-                                    ))
+                                Text(c.type ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
                             }
                         }
                     }
@@ -865,14 +983,19 @@ fun RiskLogsScreen() {
                     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
                         Column(Modifier.padding(12.dp)) {
                             Row {
-                                Text(log.callType ?: "风控事件", fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                                val st = log.processingStatus ?: ""
-                                val color = when {
-                                    st.contains("success", true) || log.success == true -> Color(0xFF52C41A)
-                                    st.contains("fail", true) || log.success == false -> Color(0xFFFF4D4F)
+                                Text(riskCallTypeCn(log.callType), fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                                val st = log.processingStatus
+                                val stCn = when {
+                                    log.success == true -> "成功"
+                                    log.success == false -> "失败"
+                                    else -> riskStatusCn(st)
+                                }
+                                val color = when (stCn) {
+                                    "成功" -> Color(0xFF52C41A)
+                                    "失败", "超时" -> Color(0xFFFF4D4F)
                                     else -> Color(0xFFFA8C16)
                                 }
-                                Text(st.ifBlank { if (log.success == true) "成功" else if (log.success == false) "失败" else "-" }, color = color, fontSize = 13.sp)
+                                Text(stCn, color = color, fontSize = 13.sp)
                             }
                             Text("账号: ${log.cookieId ?: log.accountId ?: "-"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.55f))
                             if (!log.message.isNullOrBlank()) Text(log.message!!, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)

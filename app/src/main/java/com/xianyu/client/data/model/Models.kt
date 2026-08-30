@@ -7,7 +7,16 @@ import com.google.gson.JsonElement
 data class LoginRequest(
     val username: String? = null,
     val password: String? = null,
-    val email: String? = null
+    val email: String? = null,
+    @SerializedName("geetest_challenge") val geetestChallenge: String? = null,
+    @SerializedName("geetest_validate") val geetestValidate: String? = null,
+    @SerializedName("geetest_seccode") val geetestSeccode: String? = null
+)
+
+data class GeetestResult(
+    val challenge: String,
+    val validate: String,
+    val seccode: String
 )
 
 data class LoginResponse(

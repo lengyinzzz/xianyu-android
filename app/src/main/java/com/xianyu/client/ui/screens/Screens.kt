@@ -37,6 +37,17 @@ import kotlinx.coroutines.launch
 
 private val gson = Gson()
 
+/** 价格显示：避免出现 ¥¥ */
+private fun formatPrice(raw: String?): String {
+    if (raw.isNullOrBlank()) return "-"
+    val s = raw.trim()
+        .removePrefix("¥")
+        .removePrefix("￥")
+        .removePrefix("元")
+        .trim()
+    return if (s.isEmpty()) "-" else "¥$s"
+}
+
 /** 订单状态中文 */
 private fun orderStatusCn(s: String?): String = when (s?.lowercase()) {
     "shipped", "delivered", "completed", "success" -> "已发货"
@@ -774,7 +785,7 @@ fun ProductsScreen() {
                                 Spacer(Modifier.height(4.dp))
                                 Row {
                                     Text("ID: ${it.itemId ?: "-"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.55f), modifier = Modifier.weight(1f))
-                                    Text("¥${it.itemPrice ?: it.price ?: "-"}", color = Color(0xFFFF4D4F), fontWeight = FontWeight.Medium)
+                                    Text(formatPrice(it.itemPrice ?: it.price), color = Color(0xFFFF4D4F), fontWeight = FontWeight.Medium)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     if (it.isPolished == true) AssistChip(onClick = {}, label = { Text("已擦亮") })
@@ -918,7 +929,7 @@ fun OrdersScreen() {
                                 Text(o.itemTitle ?: o.itemId ?: "", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Row {
                                     Text("买家: ${o.buyerFishNick ?: o.buyerId ?: "-"}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                                    Text("¥${o.amount ?: "-"}", color = Color(0xFFFF4D4F), fontWeight = FontWeight.Medium)
+                                    Text(formatPrice(o.amount), color = Color(0xFFFF4D4F), fontWeight = FontWeight.Medium)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     AssistChip(onClick = {}, label = { Text(orderStatusCn(o.status)) })

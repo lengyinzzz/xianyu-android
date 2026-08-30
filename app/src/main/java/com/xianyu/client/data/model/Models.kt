@@ -210,3 +210,40 @@ data class RiskLogListResponse(
     val offset: Int = 0,
     val message: String? = null
 )
+
+
+// ========== Dashboard Stats ==========
+data class AccountStats(
+    @SerializedName("total_accounts") val totalAccounts: Int = 0,
+    @SerializedName("active_accounts") val activeAccounts: Int = 0,
+    @SerializedName("total_keywords") val totalKeywords: Int = 0,
+    @SerializedName("total_orders") val totalOrders: Int = 0,
+    @SerializedName("today_reply_count") val todayReplyCount: Int = 0,
+    @SerializedName("yesterday_reply_count") val yesterdayReplyCount: Int = 0,
+    @SerializedName("account_limit") val accountLimit: Int? = null,
+    @SerializedName("used_account_count") val usedAccountCount: Int = 0,
+    @SerializedName("remaining_account_count") val remainingAccountCount: Int? = null
+)
+
+data class OrderTrendData(
+    val trend: List<OrderTrendItem> = emptyList()
+)
+
+data class OrderTrendItem(
+    val date: String = "",
+    val amount: Double = 0.0,
+    val count: Int = 0
+)
+
+data class BatchRateResponse(
+    val success: Boolean = false,
+    val message: String? = null,
+    val data: BatchRateData? = null
+)
+
+data class BatchRateData(
+    @SerializedName("total_rated") val totalRated: Int = 0,
+    @SerializedName("total_failed") val totalFailed: Int = 0,
+    @SerializedName("success_accounts") val successAccounts: Int = 0,
+    @SerializedName("total_accounts") val totalAccounts: Int = 0
+)

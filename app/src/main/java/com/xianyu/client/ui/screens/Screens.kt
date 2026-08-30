@@ -39,6 +39,7 @@ import com.xianyu.client.data.model.*
 import com.xianyu.client.network.RetrofitClient
 import com.xianyu.client.ui.geetest.GeetestWebView
 import com.xianyu.client.data.model.GeetestResult
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -565,22 +566,91 @@ fun ChatScreen() {
     var input by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // 正在连接的账号 id，用于显示「正在连接」并轮询
+    var connectingId by remember { mutableStateOf<String?>(null) }
+    var connectHint by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    suspend fun fetchAccountsOnce(): List<ChatAccount> {
+        val body = RetrofitClient.api().getChatAccountsRaw(1, 50).string()
+        val root = gson.fromJson(body, com.google.gson.JsonObject::class.java)
+        val arr = when {
+            root.get("data")?.isJsonArray == true -> root.getAsJsonArray("data")
+            root.get("accounts")?.isJsonArray == true -> root.getAsJsonArray("accounts")
+            else -> null
+        }
+        return if (arr != null) gson.fromJson(arr, object : TypeToken<List<ChatAccount>>() {}.type) else emptyList()
+    }
 
     fun loadAccounts() {
         scope.launch {
             loading = true; error = null
             try {
-                val body = RetrofitClient.api().getChatAccountsRaw(1, 50).string()
-                val root = gson.fromJson(body, com.google.gson.JsonObject::class.java)
-                val arr = when {
-                    root.get("data")?.isJsonArray == true -> root.getAsJsonArray("data")
-                    root.get("accounts")?.isJsonArray == true -> root.getAsJsonArray("accounts")
-                    else -> null
+                accounts = fetchAccountsOnce()
+                // 同步更新当前选中账号的连接状态
+                selectedAccount?.let { sel ->
+                    accounts.find { it.accountId == sel.accountId }?.let { selectedAccount = it }
                 }
-                accounts = if (arr != null) gson.fromJson(arr, object : TypeToken<List<ChatAccount>>() {}.type) else emptyList()
             } catch (e: Exception) { error = e.message }
             finally { loading = false }
+        }
+    }
+
+    /** 点击连接：显示正在连接，每秒刷新直到成功或超时 */
+    fun startConnect(accountId: String) {
+        if (connectingId != null) return
+        connectingId = accountId
+        connectHint = "正在连接…"
+        error = null
+        scope.launch {
+            try {
+                RetrofitClient.api().connectChatAccount(accountId)
+            } catch (e: Exception) {
+                // 接口可能立即返回，仍以轮询结果为准
+                connectHint = e.message ?: "发起连接失败"
+            }
+            // 最多轮询 30 次（约 30 秒）
+            var ok = false
+            repeat(30) {
+                delay(1000)
+                try {
+                    val list = fetchAccountsOnce()
+                    accounts = list
+                    val acc = list.find { it.accountId == accountId }
+                    if (acc != null) {
+                        if (selectedAccount?.accountId == accountId) selectedAccount = acc
+                        if (acc.connected) {
+                            ok = true
+                            connectHint = "连接成功"
+                            return@repeat
+                        }
+                    }
+                    connectHint = "正在连接…(${it + 1}s)"
+                } catch (_: Exception) {
+                    connectHint = "正在连接…(${it + 1}s)"
+                }
+            }
+            if (!ok) {
+                connectHint = "连接超时，请重试"
+            }
+            connectingId = null
+            // 成功提示 1.5 秒后清除
+            if (ok) {
+                delay(1500)
+                connectHint = null
+            }
+        }
+    }
+
+    fun startDisconnect(accountId: String) {
+        scope.launch {
+            try {
+                RetrofitClient.api().disconnectChatAccount(accountId)
+                loadAccounts()
+                connectHint = "已断开"
+                delay(1200)
+                connectHint = null
+            } catch (e: Exception) { error = e.message }
         }
     }
 
@@ -723,15 +793,22 @@ fun ChatScreen() {
                         },
                         actions = {
                             IconButton(onClick = { loadConversations(acc) }) { Icon(Icons.Default.Refresh, null) }
-                            IconButton(onClick = {
-                                scope.launch {
-                                    try {
-                                        if (acc.connected) RetrofitClient.api().disconnectChatAccount(acc.accountId)
-                                        else RetrofitClient.api().connectChatAccount(acc.accountId)
-                                        loadAccounts()
-                                    } catch (e: Exception) { error = e.message }
+                            val isConnecting = connectingId == acc.accountId
+                            if (isConnecting) {
+                                Text(
+                                    connectHint ?: "正在连接…",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                            } else {
+                                TextButton(onClick = {
+                                    if (acc.connected) startDisconnect(acc.accountId)
+                                    else startConnect(acc.accountId)
+                                }) {
+                                    Text(if (acc.connected) "断开" else "连接")
                                 }
-                            }) { Icon(if (acc.connected) Icons.Default.Link else Icons.Default.Link, null) }
+                            }
                         }
                     )
                 }
@@ -770,6 +847,9 @@ fun ChatScreen() {
                     Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(p).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (connectHint != null) item {
+                            Text(connectHint!!, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                        }
                         if (error != null) item { Text(error!!, color = MaterialTheme.colorScheme.error) }
                         items(accounts) { a ->
                             Card(Modifier.fillMaxWidth().clickable {
@@ -781,11 +861,23 @@ fun ChatScreen() {
                                         Text(a.displayName ?: a.accountId, fontWeight = FontWeight.Medium)
                                         if (!a.remark.isNullOrBlank()) Text(a.remark!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.55f))
                                     }
-                                    AssistChip(onClick = {}, label = { Text(if (a.connected) "已连接" else "未连接") },
-                                        colors = AssistChipDefaults.assistChipColors(
-                                            containerColor = if (a.connected) Color(0xFFE6F7FF) else Color(0xFFFFF7E6),
-                                            labelColor = if (a.connected) Color(0xFF1677FF) else Color(0xFFFA8C16)
-                                        ))
+                                    val isConnecting = connectingId == a.accountId
+                                    if (isConnecting) {
+                                        Text(connectHint ?: "正在连接…", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                                    } else if (a.connected) {
+                                        TextButton(
+                                            onClick = { startDisconnect(a.accountId) },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                        ) { Text("已连接·断开") }
+                                    } else {
+                                        Button(
+                                            onClick = {
+                                                // 避免点按钮时触发进入会话
+                                                startConnect(a.accountId)
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                        ) { Text("连接") }
+                                    }
                                 }
                             }
                         }

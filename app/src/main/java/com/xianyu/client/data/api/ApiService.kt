@@ -12,6 +12,13 @@ interface ApiService {
     @GET("/api/v1/auth/verify")
     suspend fun verifyToken(): VerifyResponse
 
+    
+    @GET("/api/v1/geetest/register")
+    suspend fun geetestRegister(): Map<String, @JvmSuppressWildcards Any>
+
+    @POST("/api/v1/geetest/validate")
+    suspend fun geetestValidate(@Body body: Map<String, String>): Map<String, @JvmSuppressWildcards Any>
+
     @POST("/api/v1/auth/logout")
     suspend fun logout(): ApiResponse<EmptyData>
 

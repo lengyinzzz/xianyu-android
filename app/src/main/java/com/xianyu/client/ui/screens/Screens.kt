@@ -28,6 +28,8 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.xianyu.client.data.model.*
 import com.xianyu.client.network.RetrofitClient
+import com.xianyu.client.ui.geetest.GeetestWebView
+import com.xianyu.client.data.model.GeetestResult
 import kotlinx.coroutines.launch
 
 
@@ -102,52 +104,128 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onChangeServer: () -> Unit) {
     var password by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var captchaResult by remember { mutableStateOf<GeetestResult?>(null) }
+    var captchaKey by remember { mutableStateOf(0) } // 刷新 WebView
     val scope = rememberCoroutineScope()
+
     Column(
-        Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
+        Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(Modifier.height(32.dp))
         Icon(Icons.Default.Lock, null, Modifier.size(56.dp), tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(16.dp))
         Text("登录", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text(RetrofitClient.getBaseUrl().removeSuffix("/"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
-        Spacer(Modifier.height(32.dp))
-        OutlinedTextField(username, { username = it; error = null }, label = { Text("用户名") }, singleLine = true, modifier = Modifier.fillMaxWidth(), leadingIcon = { Icon(Icons.Default.Person, null) })
+        Text(
+            RetrofitClient.getBaseUrl().removeSuffix("/"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(0.5f)
+        )
+        Spacer(Modifier.height(24.dp))
+        OutlinedTextField(
+            username, { username = it; error = null },
+            label = { Text("用户名") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            leadingIcon = { Icon(Icons.Default.Person, null) }
+        )
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(password, { password = it; error = null }, label = { Text("密码") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), leadingIcon = { Icon(Icons.Default.Lock, null) })
+        OutlinedTextField(
+            password, { password = it; error = null },
+            label = { Text("密码") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+            leadingIcon = { Icon(Icons.Default.Lock, null) }
+        )
+        Spacer(Modifier.height(16.dp))
+
+        // 滑动验证（WebView 套一层极验）
+        Text(
+            "滑动验证（若后台未开启可忽略）",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(0.55f),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(6.dp))
+        key(captchaKey) {
+            GeetestWebView(
+                onSuccess = {
+                    captchaResult = it
+                    error = null
+                },
+                onError = {
+                    captchaResult = null
+                    // 不强制阻断登录：后台可能未开启验证码
+                }
+            )
+        }
+        if (captchaResult != null) {
+            Text("✓ 滑动验证已完成", color = Color(0xFF52C41A), style = MaterialTheme.typography.bodySmall)
+        }
+        TextButton(onClick = {
+            captchaResult = null
+            captchaKey++
+        }) { Text("刷新验证码") }
+
         if (error != null) {
             Spacer(Modifier.height(8.dp))
             Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(20.dp))
         Button(
             onClick = {
-                if (username.isBlank() || password.isBlank()) { error = "请输入用户名和密码"; return@Button }
-                loading = true; error = null
+                if (username.isBlank() || password.isBlank()) {
+                    error = "请输入用户名和密码"
+                    return@Button
+                }
+                loading = true
+                error = null
                 scope.launch {
                     try {
-                        val resp = RetrofitClient.api().login(LoginRequest(username = username.trim(), password = password))
+                        val resp = RetrofitClient.api().login(
+                            LoginRequest(
+                                username = username.trim(),
+                                password = password,
+                                geetestChallenge = captchaResult?.challenge,
+                                geetestValidate = captchaResult?.validate,
+                                geetestSeccode = captchaResult?.seccode
+                            )
+                        )
                         if (resp.success && !resp.token.isNullOrBlank()) {
                             RetrofitClient.setToken(resp.token)
                             onLoginSuccess()
-                        } else error = resp.message ?: "登录失败"
-                    } catch (e: Exception) { error = e.message ?: "网络错误" }
-                    finally { loading = false }
+                        } else {
+                            error = resp.message ?: "登录失败"
+                            // 失败后刷新验证码
+                            captchaResult = null
+                            captchaKey++
+                        }
+                    } catch (e: Exception) {
+                        error = e.message ?: "网络错误"
+                        captchaResult = null
+                        captchaKey++
+                    } finally {
+                        loading = false
+                    }
                 }
             },
-            enabled = !loading, modifier = Modifier.fillMaxWidth().height(48.dp)
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth().height(48.dp)
         ) {
             if (loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
             else Text("登录")
         }
         Spacer(Modifier.height(16.dp))
         TextButton(onClick = onChangeServer) { Text("更换服务器地址") }
-        Text("若开启滑动验证码请先在后台关闭", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.45f))
+        Spacer(Modifier.height(24.dp))
     }
 }
 
-// ========== 主界面带底部导航 ==========
+// ========== 主界面// ========== 主界面带底部导航 ==========
 enum class MainTab(val label: String, val icon: ImageVector) {
     Dashboard("控制台", Icons.Default.Home),
     Chat("聊天", Icons.Default.Chat),

@@ -235,6 +235,10 @@ data class OrderTrendItem(
     val count: Int = 0
 )
 
+data class BatchRateRequest(
+    @SerializedName("account_ids") val accountIds: List<String>
+)
+
 data class BatchRateResponse(
     val success: Boolean = false,
     val message: String? = null,

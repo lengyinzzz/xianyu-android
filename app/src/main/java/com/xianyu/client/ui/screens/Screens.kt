@@ -1,10 +1,14 @@
 package com.xianyu.client.ui.screens
 
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -21,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -103,6 +108,24 @@ private fun deliveryMethodCn(s: String?): String = when (s?.lowercase()) {
     else -> s
 }
 
+
+
+@Composable
+private fun TagChip(text: String) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)),
+        color = Color.Transparent
+    ) {
+        Text(
+            text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            fontSize = 12.sp,
+            maxLines = 1,
+            softWrap = false
+        )
+    }
+}
 
 // ========== 服务器配置 ==========
 @Composable
@@ -733,7 +756,7 @@ fun ChatScreen() {
 }
 
 // ========== 商品管理 ==========
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProductsScreen() {
     var items by remember { mutableStateOf<List<ItemData>>(emptyList()) }
@@ -757,10 +780,11 @@ fun ProductsScreen() {
         }
     }
     LaunchedEffect(Unit) { load() }
+    val animatedProductTotal by animateIntAsState(targetValue = total, label = "productTotal")
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("商品管理 ($total)") }, actions = {
+            TopAppBar(title = { Text("商品管理 ($animatedProductTotal)") }, actions = {
                 IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
             })
         }
@@ -788,8 +812,10 @@ fun ProductsScreen() {
                                     Text(formatPrice(it.itemPrice ?: it.price), color = Color(0xFFFF4D4F), fontWeight = FontWeight.Medium)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    if (it.isPolished == true) AssistChip(onClick = {}, label = { Text("已擦亮") })
-                                    if (it.hasCard == true) AssistChip(onClick = {}, label = { Text("有卡券") })
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        if (it.isPolished == true) TagChip("已擦亮")
+                                        if (it.hasCard == true) TagChip("有卡券")
+                                    }
                                 }
                             }
                         }
@@ -834,9 +860,10 @@ fun CardsScreen() {
         }
     }
     LaunchedEffect(Unit) { load() }
+    val animatedCardTotal by animateIntAsState(targetValue = total, label = "cardTotal")
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("卡券管理 ($total)") }, actions = {
+        TopAppBar(title = { Text("卡券管理 ($animatedCardTotal)") }, actions = {
             IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
         })
     }) { padding ->
@@ -880,7 +907,7 @@ fun CardsScreen() {
 }
 
 // ========== 订单管理 ==========
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun OrdersScreen() {
     var orders by remember { mutableStateOf<List<OrderData>>(emptyList()) }
@@ -905,8 +932,9 @@ fun OrdersScreen() {
     }
     LaunchedEffect(Unit) { load() }
 
+    val animatedTotal by animateIntAsState(targetValue = total, label = "orderTotal")
     Scaffold(topBar = {
-        TopAppBar(title = { Text("订单管理 ($total)") }, actions = {
+        TopAppBar(title = { Text("订单管理 ($animatedTotal)") }, actions = {
             IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
         })
     }) { padding ->
@@ -931,11 +959,15 @@ fun OrdersScreen() {
                                     Text("买家: ${o.buyerFishNick ?: o.buyerId ?: "-"}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                                     Text(formatPrice(o.amount), color = Color(0xFFFF4D4F), fontWeight = FontWeight.Medium)
                                 }
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    AssistChip(onClick = {}, label = { Text(orderStatusCn(o.status)) })
-                                    if (!o.deliveryMethod.isNullOrBlank()) AssistChip(onClick = {}, label = { Text(deliveryMethodCn(o.deliveryMethod)) })
-                                    if (o.isBargain == true) AssistChip(onClick = {}, label = { Text("小刀") })
-                                    if (o.isRated == true) AssistChip(onClick = {}, label = { Text("已评价") })
+                                Spacer(Modifier.height(6.dp))
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    TagChip(orderStatusCn(o.status))
+                                    if (!o.deliveryMethod.isNullOrBlank()) TagChip(deliveryMethodCn(o.deliveryMethod))
+                                    if (o.isBargain == true) TagChip("小刀")
+                                    if (o.isRated == true) TagChip("已评价")
                                 }
                             }
                         }
@@ -982,8 +1014,10 @@ fun RiskLogsScreen() {
     }
     LaunchedEffect(Unit) { load() }
 
+    val animatedRiskTotal by animateIntAsState(targetValue = total, label = "riskTotal")
+
     Scaffold(topBar = {
-        TopAppBar(title = { Text("风控日志 ($total)") }, actions = {
+        TopAppBar(title = { Text("风控日志 ($animatedRiskTotal)") }, actions = {
             IconButton(onClick = { load(offset) }) { Icon(Icons.Default.Refresh, null) }
         })
     }) { padding ->

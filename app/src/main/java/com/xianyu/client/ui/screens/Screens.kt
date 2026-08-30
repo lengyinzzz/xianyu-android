@@ -1,6 +1,8 @@
 package com.xianyu.client.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -376,6 +378,38 @@ fun DashboardContent(onLogout: () -> Unit) {
     }
     LaunchedEffect(Unit) { refresh() }
 
+    // 数字滚动动画
+    val animTrendTotal by animateFloatAsState(
+        targetValue = trendTotal.toFloat(),
+        animationSpec = tween(durationMillis = 900),
+        label = "trendTotal"
+    )
+    val animTodayAmount by animateFloatAsState(
+        targetValue = todayAmount.toFloat(),
+        animationSpec = tween(durationMillis = 900),
+        label = "todayAmount"
+    )
+    val animTotalOrders by animateIntAsState(
+        targetValue = stats?.totalOrders ?: 0,
+        animationSpec = tween(durationMillis = 900),
+        label = "totalOrders"
+    )
+    val animTodayReply by animateIntAsState(
+        targetValue = stats?.todayReplyCount ?: 0,
+        animationSpec = tween(durationMillis = 900),
+        label = "todayReply"
+    )
+    val animAccountCount by animateIntAsState(
+        targetValue = stats?.totalAccounts ?: accounts.size,
+        animationSpec = tween(durationMillis = 900),
+        label = "accountCount"
+    )
+    val animActiveCount by animateIntAsState(
+        targetValue = stats?.activeAccounts ?: 0,
+        animationSpec = tween(durationMillis = 900),
+        label = "activeCount"
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -394,20 +428,28 @@ fun DashboardContent(onLogout: () -> Unit) {
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatCard("近${if (trendDays > 0) trendDays else "-"}日成交", "¥${"%.2f".format(trendTotal)}", Modifier.weight(1f))
-                    StatCard("最近一日", "¥${"%.2f".format(todayAmount)}", Modifier.weight(1f))
+                    StatCard(
+                        "近${if (trendDays > 0) trendDays else "-"}日成交",
+                        "¥${"%.2f".format(animTrendTotal)}",
+                        Modifier.weight(1f)
+                    )
+                    StatCard(
+                        "最近一日",
+                        "¥${"%.2f".format(animTodayAmount)}",
+                        Modifier.weight(1f)
+                    )
                 }
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatCard("总订单", "${stats?.totalOrders ?: "-"}", Modifier.weight(1f))
-                    StatCard("今日回复", "${stats?.todayReplyCount ?: "-"}", Modifier.weight(1f))
+                    StatCard("总订单", "$animTotalOrders", Modifier.weight(1f))
+                    StatCard("今日回复", "$animTodayReply", Modifier.weight(1f))
                 }
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatCard("账号数", "${stats?.totalAccounts ?: accounts.size}", Modifier.weight(1f))
-                    StatCard("启用中", "${stats?.activeAccounts ?: "-"}", Modifier.weight(1f))
+                    StatCard("账号数", "$animAccountCount", Modifier.weight(1f))
+                    StatCard("启用中", "$animActiveCount", Modifier.weight(1f))
                 }
             }
 

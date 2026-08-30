@@ -96,7 +96,7 @@ interface ApiService {
     suspend fun getOrderTrend(): ApiResponse<OrderTrendData>
 
     @POST("/api/v1/auto-rate/batch-rate")
-    suspend fun batchRateOrders(@Body body: Map<String, List<String>>): BatchRateResponse
+    suspend fun batchRateOrders(@Body body: BatchRateRequest): BatchRateResponse
 
     @GET("/api/v1/risk-control-logs")
     suspend fun getRiskLogs(

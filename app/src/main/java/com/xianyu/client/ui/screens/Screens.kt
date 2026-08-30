@@ -30,7 +30,32 @@ import com.xianyu.client.data.model.*
 import com.xianyu.client.network.RetrofitClient
 import kotlinx.coroutines.launch
 
+
 private val gson = Gson()
+
+/** 订单状态中文 */
+private fun orderStatusCn(s: String?): String = when (s?.lowercase()) {
+    "shipped", "delivered", "completed", "success" -> "已发货"
+    "pending_payment", "unpaid", "wait_pay" -> "待付款"
+    "pending_ship", "paid", "wait_ship", "to_ship" -> "待发货"
+    "cancelled", "canceled", "closed" -> "已取消"
+    "refunding" -> "退款中"
+    "refunded" -> "已退款"
+    "processing" -> "处理中"
+    null, "" -> "未知"
+    else -> s
+}
+
+/** 发货方式中文 */
+private fun deliveryMethodCn(s: String?): String = when (s?.lowercase()) {
+    "auto" -> "自动发货"
+    "manual" -> "手动发货"
+    "scheduled" -> "定时发货"
+    "none", "" -> "未发货"
+    null -> "-"
+    else -> s
+}
+
 
 // ========== 服务器配置 ==========
 @Composable
@@ -275,7 +300,11 @@ fun ChatScreen() {
             try {
                 val body = RetrofitClient.api().getChatAccountsRaw(1, 50).string()
                 val root = gson.fromJson(body, com.google.gson.JsonObject::class.java)
-                val arr = root.getAsJsonArray("data") ?: root.getAsJsonArray("accounts")
+                val arr = when {
+                    root.get("data")?.isJsonArray == true -> root.getAsJsonArray("data")
+                    root.get("accounts")?.isJsonArray == true -> root.getAsJsonArray("accounts")
+                    else -> null
+                }
                 accounts = if (arr != null) gson.fromJson(arr, object : TypeToken<List<ChatAccount>>() {}.type) else emptyList()
             } catch (e: Exception) { error = e.message }
             finally { loading = false }
@@ -288,7 +317,19 @@ fun ChatScreen() {
             try {
                 val body = RetrofitClient.api().getConversationsRaw(acc.accountId).string()
                 val root = gson.fromJson(body, com.google.gson.JsonObject::class.java)
-                val arr = root.getAsJsonArray("conversations") ?: root.getAsJsonArray("data")
+                // 后端结构: { success, data: { conversations: [...], hasMore, nextCursor } }
+                val arr = when {
+                    root.get("data")?.isJsonObject == true -> {
+                        val data = root.getAsJsonObject("data")
+                        when {
+                            data.get("conversations")?.isJsonArray == true -> data.getAsJsonArray("conversations")
+                            else -> null
+                        }
+                    }
+                    root.get("conversations")?.isJsonArray == true -> root.getAsJsonArray("conversations")
+                    root.get("data")?.isJsonArray == true -> root.getAsJsonArray("data")
+                    else -> null
+                }
                 conversations = if (arr != null) gson.fromJson(arr, object : TypeToken<List<Conversation>>() {}.type) else emptyList()
             } catch (e: Exception) { error = e.message }
             finally { loading = false }
@@ -301,7 +342,19 @@ fun ChatScreen() {
             try {
                 val body = RetrofitClient.api().getMessagesRaw(acc.accountId, conv.cid).string()
                 val root = gson.fromJson(body, com.google.gson.JsonObject::class.java)
-                val arr = root.getAsJsonArray("messages") ?: root.getAsJsonArray("data")
+                // 后端结构: { success, data: { messages: [...], hasMore, nextCursor } }
+                val arr = when {
+                    root.get("data")?.isJsonObject == true -> {
+                        val data = root.getAsJsonObject("data")
+                        when {
+                            data.get("messages")?.isJsonArray == true -> data.getAsJsonArray("messages")
+                            else -> null
+                        }
+                    }
+                    root.get("messages")?.isJsonArray == true -> root.getAsJsonArray("messages")
+                    root.get("data")?.isJsonArray == true -> root.getAsJsonArray("data")
+                    else -> null
+                }
                 messages = if (arr != null) gson.fromJson(arr, object : TypeToken<List<ChatMessage>>() {}.type) else emptyList()
             } catch (e: Exception) { error = e.message }
             finally { loading = false }
@@ -341,7 +394,11 @@ fun ChatScreen() {
                             val text = input.trim()
                             scope.launch {
                                 try {
-                                    RetrofitClient.api().sendTextMessage(acc.accountId, mapOf("cid" to conv.cid, "text" to text))
+                                    RetrofitClient.api().sendTextMessage(acc.accountId, mapOf(
+                                        "cid" to conv.cid,
+                                        "toUserId" to (conv.otherUserId ?: ""),
+                                        "text" to text
+                                    ))
                                     input = ""
                                     loadMessages(acc, conv)
                                 } catch (e: Exception) { error = e.message }
@@ -664,9 +721,10 @@ fun OrdersScreen() {
                                     Text("¥${o.amount ?: "-"}", color = Color(0xFFFF4D4F), fontWeight = FontWeight.Medium)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    AssistChip(onClick = {}, label = { Text(o.status ?: "未知") })
-                                    if (o.deliveryMethod != null) AssistChip(onClick = {}, label = { Text(o.deliveryMethod!!) })
+                                    AssistChip(onClick = {}, label = { Text(orderStatusCn(o.status)) })
+                                    if (!o.deliveryMethod.isNullOrBlank()) AssistChip(onClick = {}, label = { Text(deliveryMethodCn(o.deliveryMethod)) })
                                     if (o.isBargain == true) AssistChip(onClick = {}, label = { Text("小刀") })
+                                    if (o.isRated == true) AssistChip(onClick = {}, label = { Text("已评价") })
                                 }
                             }
                         }

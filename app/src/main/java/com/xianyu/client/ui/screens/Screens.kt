@@ -69,6 +69,8 @@ private fun riskCallTypeCn(s: String?): String {
     if (s.isNullOrBlank()) return "风控事件"
     val lower = s.lowercase()
     return when {
+        lower == "remote" || lower.contains("remote") -> "远程过滑块"
+        lower.contains("local") -> "本地滑块"
         lower.contains("slider") || lower.contains("captcha") || lower.contains("滑块") -> "滑块验证"
         lower.contains("login") -> "登录风控"
         lower.contains("punish") -> "处罚页"
@@ -423,7 +425,7 @@ fun DashboardContent(onLogout: () -> Unit) {
                         scope.launch {
                             try {
                                 val ids = accounts.map { it.id }
-                                val r = RetrofitClient.api().batchRateOrders(mapOf("account_ids" to ids))
+                                val r = RetrofitClient.api().batchRateOrders(BatchRateRequest(accountIds = ids))
                                 message = if (r.success) {
                                     val d = r.data
                                     "补评价完成：成功 ${d?.totalRated ?: 0}，失败 ${d?.totalFailed ?: 0}"

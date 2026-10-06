@@ -1537,7 +1537,13 @@ fun KeywordsScreen(onBack: (() -> Unit)? = null) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     if (!kw.accountId.isNullOrBlank()) TagChip("账号:${kw.accountId}")
                                     if (!kw.itemId.isNullOrBlank()) TagChip("商品:${kw.itemId}")
-                                    TagChip(kw.type)
+                                    val typeCn = when (kw.type.lowercase()) {
+                                        "text" -> "文本"
+                                        "image" -> "图片"
+                                        "location" -> "位置"
+                                        else -> null
+                                    }
+                                    typeCn?.let { TagChip(it) }
                                 }
                                 if (!kw.itemTitle.isNullOrBlank()) {
                                     Text(kw.itemTitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1737,12 +1743,47 @@ fun ReplyLogsScreen(onBack: (() -> Unit)? = null) {
     }
     LaunchedEffect(Unit) { load() }
 
-    fun statusCn(s: String?) = when (s?.lowercase()) {
+    fun statusCn(s: String?) = when (s?.lowercase()?.trim()) {
         "success" -> "成功"
-        "failed" -> "失败"
+        "failed", "fail" -> "失败"
         "unknown" -> "待确认"
         "timeout" -> "超时"
-        else -> s ?: "-"
+        else -> s?.takeIf { it.isNotBlank() } ?: "未知"
+    }
+
+    fun ruleTypeCn(s: String?): String? {
+        val v = s?.trim()?.lowercase() ?: return null
+        if (v.isEmpty()) return null
+        return when (v) {
+            "keyword" -> "关键词"
+            "keyword_item", "item_keyword" -> "商品关键词"
+            "default_reply", "default" -> "默认回复"
+            "ai", "ai_reply" -> "AI回复"
+            "auto_delivery", "delivery" -> "自动发货"
+            "card", "card_reply" -> "卡券"
+            "quick_phrase" -> "快捷短语"
+            else -> null // 英文原始值不展示，避免出现 keyword_item 等
+        }
+    }
+
+    fun strategyCn(s: String?): String? {
+        val v = s?.trim()?.lowercase() ?: return null
+        if (v.isEmpty()) return null
+        return when (v) {
+            "keyword" -> "关键词回复"
+            "keyword_item", "item_keyword" -> "商品关键词回复"
+            "default_reply", "default" -> "默认回复"
+            "ai", "ai_reply" -> "AI回复"
+            "auto_delivery", "delivery" -> "自动发货"
+            "card" -> "卡券回复"
+            "no_reply", "skip" -> "不回复"
+            else -> null
+        }
+    }
+
+    fun formatTime(s: String?): String {
+        if (s.isNullOrBlank()) return ""
+        return s.replace("T", " ").replace("+00:00", "").take(19)
     }
 
     Scaffold(topBar = {
@@ -1797,14 +1838,22 @@ fun ReplyLogsScreen(onBack: (() -> Unit)? = null) {
                                 if (!log.replyText.isNullOrBlank()) {
                                     Text("回复: ${log.replyText}", maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 }
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    if (!log.matchedKeyword.isNullOrBlank()) TagChip("关键词:${log.matchedKeyword}")
-                                    if (!log.matchedRuleType.isNullOrBlank()) TagChip(log.matchedRuleType!!)
-                                    if (!log.replyStrategy.isNullOrBlank()) TagChip(log.replyStrategy!!)
-                                    if (!log.accountId.isNullOrBlank()) TagChip(log.accountId!!)
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    val kw = log.matchedKeyword?.trim().orEmpty()
+                                    if (kw.isNotEmpty()) TagChip("关键词:$kw")
+                                    ruleTypeCn(log.matchedRuleType)?.let { TagChip(it) }
+                                    // 策略与规则类型相同时不重复展示
+                                    val strategyLabel = strategyCn(log.replyStrategy)
+                                    val ruleLabel = ruleTypeCn(log.matchedRuleType)
+                                    if (strategyLabel != null && strategyLabel != ruleLabel && strategyLabel != "关键词回复") {
+                                        TagChip(strategyLabel)
+                                    }
                                 }
                                 if (!log.createdAt.isNullOrBlank()) {
-                                    Text(log.createdAt, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                    Text(formatTime(log.createdAt), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                                 }
                                 val err = log.errorMessage ?: log.sendFailReason
                                 if (!err.isNullOrBlank()) {

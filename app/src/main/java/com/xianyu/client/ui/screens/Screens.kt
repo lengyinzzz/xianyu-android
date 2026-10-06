@@ -1,3 +1,8 @@
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+)
+
 package com.xianyu.client.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
@@ -380,8 +385,9 @@ fun MoreMenuScreen(onSelect: (MoreSubPage) -> Unit) {
             items(items.size) { i ->
                 val (page, label, icon) = items[i]
                 Card(
-                    onClick = { onSelect(page) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(page) }
                 ) {
                     Row(
                         Modifier.padding(16.dp).fillMaxWidth(),
@@ -1425,7 +1431,6 @@ fun AccountsScreen() {
                                 if (!acc.disableReason.isNullOrBlank()) {
                                     Text("禁用原因: ${acc.disableReason}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                                 }
-                                @OptIn(ExperimentalLayoutApi::class)
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     TagChip(if (acc.enabled) "已启用" else "已禁用")
                                     if (acc.autoConfirm) TagChip("自动确认")

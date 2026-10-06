@@ -331,17 +331,20 @@ data class ToggleBlacklistRequest(
 data class ReplyLogItem(
     val id: Int? = null,
     @SerializedName("account_id") val accountId: String? = null,
+    @SerializedName("account_name") val accountName: String? = null,
     @SerializedName("item_id") val itemId: String? = null,
-    @SerializedName("buyer_id") val buyerId: String? = null,
-    @SerializedName("buyer_nick") val buyerNick: String? = null,
-    @SerializedName("received_message") val receivedMessage: String? = null,
-    @SerializedName("reply_content") val replyContent: String? = null,
+    @SerializedName("item_title") val itemTitle: String? = null,
+    @SerializedName("sender_user_id") val senderUserId: String? = null,
+    @SerializedName("sender_user_name") val senderUserName: String? = null,
+    @SerializedName("source_message") val sourceMessage: String? = null,
+    @SerializedName("reply_text") val replyText: String? = null,
     @SerializedName("matched_rule_type") val matchedRuleType: String? = null,
     @SerializedName("matched_keyword") val matchedKeyword: String? = null,
+    @SerializedName("reply_strategy") val replyStrategy: String? = null,
     @SerializedName("send_status") val sendStatus: String? = null,
-    @SerializedName("message_type") val messageType: String? = null,
-    @SerializedName("created_at") val createdAt: String? = null,
-    val error: String? = null
+    @SerializedName("send_fail_reason") val sendFailReason: String? = null,
+    @SerializedName("error_message") val errorMessage: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null
 )
 
 data class ReplyLogListResponse(

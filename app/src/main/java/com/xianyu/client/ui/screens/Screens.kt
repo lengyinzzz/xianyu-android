@@ -342,30 +342,16 @@ fun MainShell(onLogout: () -> Unit) {
                 MainTab.Accounts -> AccountsScreen()
                 MainTab.More -> when (morePage) {
                     MoreSubPage.Menu -> MoreMenuScreen(onSelect = { morePage = it })
-                    MoreSubPage.Products -> SubPageScaffold("商品管理", { morePage = MoreSubPage.Menu }) { ProductsScreen() }
-                    MoreSubPage.Cards -> SubPageScaffold("卡券管理", { morePage = MoreSubPage.Menu }) { CardsScreen() }
-                    MoreSubPage.Orders -> SubPageScaffold("订单管理", { morePage = MoreSubPage.Menu }) { OrdersScreen() }
-                    MoreSubPage.Keywords -> SubPageScaffold("关键词", { morePage = MoreSubPage.Menu }) { KeywordsScreen() }
-                    MoreSubPage.Blacklist -> SubPageScaffold("黑名单", { morePage = MoreSubPage.Menu }) { BlacklistScreen() }
-                    MoreSubPage.ReplyLogs -> SubPageScaffold("回复日志", { morePage = MoreSubPage.Menu }) { ReplyLogsScreen() }
-                    MoreSubPage.Risk -> SubPageScaffold("风控日志", { morePage = MoreSubPage.Menu }) { RiskLogsScreen() }
+                    MoreSubPage.Products -> ProductsScreen(onBack = { morePage = MoreSubPage.Menu })
+                    MoreSubPage.Cards -> CardsScreen(onBack = { morePage = MoreSubPage.Menu })
+                    MoreSubPage.Orders -> OrdersScreen(onBack = { morePage = MoreSubPage.Menu })
+                    MoreSubPage.Keywords -> KeywordsScreen(onBack = { morePage = MoreSubPage.Menu })
+                    MoreSubPage.Blacklist -> BlacklistScreen(onBack = { morePage = MoreSubPage.Menu })
+                    MoreSubPage.ReplyLogs -> ReplyLogsScreen(onBack = { morePage = MoreSubPage.Menu })
+                    MoreSubPage.Risk -> RiskLogsScreen(onBack = { morePage = MoreSubPage.Menu })
                 }
             }
         }
-    }
-}
-
-@Composable
-fun SubPageScaffold(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "返回") }
-            Text(title, style = MaterialTheme.typography.titleMedium)
-        }
-        Box(Modifier.weight(1f)) { content() }
     }
 }
 
@@ -1066,7 +1052,7 @@ fun ChatScreen() {
 // ========== 商品管理 ==========
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ProductsScreen() {
+fun ProductsScreen(onBack: (() -> Unit)? = null) {
     var items by remember { mutableStateOf<List<ItemData>>(emptyList()) }
     var total by remember { mutableStateOf(0) }
     var page by remember { mutableStateOf(1) }
@@ -1092,9 +1078,17 @@ fun ProductsScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("商品管理 ($animatedProductTotal)") }, actions = {
-                IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
-            })
+            TopAppBar(
+                title = { Text("商品管理 ($animatedProductTotal)") },
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "返回") }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
+                }
+            )
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -1146,7 +1140,7 @@ fun ProductsScreen() {
 // ========== 卡券管理 ==========
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CardsScreen() {
+fun CardsScreen(onBack: (() -> Unit)? = null) {
     var cards by remember { mutableStateOf<List<CardData>>(emptyList()) }
     var total by remember { mutableStateOf(0) }
     var page by remember { mutableStateOf(1) }
@@ -1171,9 +1165,17 @@ fun CardsScreen() {
     val animatedCardTotal by animateIntAsState(targetValue = total, label = "cardTotal")
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("卡券管理 ($animatedCardTotal)") }, actions = {
-            IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
-        })
+        TopAppBar(
+            title = { Text("卡券管理 ($animatedCardTotal)") },
+            navigationIcon = {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "返回") }
+                }
+            },
+            actions = {
+                IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
+            }
+        )
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
@@ -1217,7 +1219,7 @@ fun CardsScreen() {
 // ========== 订单管理 ==========
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun OrdersScreen() {
+fun OrdersScreen(onBack: (() -> Unit)? = null) {
     var orders by remember { mutableStateOf<List<OrderData>>(emptyList()) }
     var total by remember { mutableStateOf(0) }
     var page by remember { mutableStateOf(1) }
@@ -1242,9 +1244,17 @@ fun OrdersScreen() {
 
     val animatedTotal by animateIntAsState(targetValue = total, label = "orderTotal")
     Scaffold(topBar = {
-        TopAppBar(title = { Text("订单管理 ($animatedTotal)") }, actions = {
-            IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
-        })
+        TopAppBar(
+            title = { Text("订单管理 ($animatedTotal)") },
+            navigationIcon = {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "返回") }
+                }
+            },
+            actions = {
+                IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
+            }
+        )
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
@@ -1298,7 +1308,7 @@ fun OrdersScreen() {
 // ========== 风控日志 ==========
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RiskLogsScreen() {
+fun RiskLogsScreen(onBack: (() -> Unit)? = null) {
     var logs by remember { mutableStateOf<List<RiskLogItem>>(emptyList()) }
     var total by remember { mutableStateOf(0) }
     var offset by remember { mutableStateOf(0) }
@@ -1325,9 +1335,17 @@ fun RiskLogsScreen() {
     val animatedRiskTotal by animateIntAsState(targetValue = total, label = "riskTotal")
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("风控日志 ($animatedRiskTotal)") }, actions = {
-            IconButton(onClick = { load(offset) }) { Icon(Icons.Default.Refresh, null) }
-        })
+        TopAppBar(
+            title = { Text("风控日志 ($animatedRiskTotal)") },
+            navigationIcon = {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "返回") }
+                }
+            },
+            actions = {
+                IconButton(onClick = { load(offset) }) { Icon(Icons.Default.Refresh, null) }
+            }
+        )
     }) { padding ->
         if (loading && logs.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -1457,7 +1475,7 @@ fun AccountsScreen() {
 // ========== 关键词管理 ==========
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KeywordsScreen() {
+fun KeywordsScreen(onBack: (() -> Unit)? = null) {
     var keywords by remember { mutableStateOf<List<KeywordDetail>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1486,9 +1504,17 @@ fun KeywordsScreen() {
     }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("关键词 (${filtered.size}/${keywords.size})") }, actions = {
-            IconButton(onClick = { load() }) { Icon(Icons.Default.Refresh, null) }
-        })
+        TopAppBar(
+            title = { Text("关键词 (${filtered.size}/${keywords.size})") },
+            navigationIcon = {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "返回") }
+                }
+            },
+            actions = {
+                IconButton(onClick = { load() }) { Icon(Icons.Default.Refresh, null) }
+            }
+        )
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
@@ -1528,7 +1554,7 @@ fun KeywordsScreen() {
 // ========== 黑名单 ==========
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BlacklistScreen() {
+fun BlacklistScreen(onBack: (() -> Unit)? = null) {
     var items by remember { mutableStateOf<List<BlacklistItem>>(emptyList()) }
     var total by remember { mutableStateOf(0) }
     var page by remember { mutableStateOf(1) }
@@ -1598,10 +1624,18 @@ fun BlacklistScreen() {
     }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("黑名单 ($total)") }, actions = {
-            IconButton(onClick = { showAdd = !showAdd }) { Icon(Icons.Default.Add, "添加") }
-            IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
-        })
+        TopAppBar(
+            title = { Text("黑名单 ($total)") },
+            navigationIcon = {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "返回") }
+                }
+            },
+            actions = {
+                IconButton(onClick = { showAdd = !showAdd }) { Icon(Icons.Default.Add, "添加") }
+                IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
+            }
+        )
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             if (showAdd) {
@@ -1679,7 +1713,7 @@ fun BlacklistScreen() {
 // ========== 自动回复日志 ==========
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReplyLogsScreen() {
+fun ReplyLogsScreen(onBack: (() -> Unit)? = null) {
     var logs by remember { mutableStateOf<List<ReplyLogItem>>(emptyList()) }
     var total by remember { mutableStateOf(0) }
     var page by remember { mutableStateOf(1) }
@@ -1712,9 +1746,17 @@ fun ReplyLogsScreen() {
     }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("回复日志 ($total)") }, actions = {
-            IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
-        })
+        TopAppBar(
+            title = { Text("回复日志 ($total)") },
+            navigationIcon = {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "返回") }
+                }
+            },
+            actions = {
+                IconButton(onClick = { load(page) }) { Icon(Icons.Default.Refresh, null) }
+            }
+        )
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1735,25 +1777,38 @@ fun ReplyLogsScreen() {
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(12.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(log.buyerNick ?: log.buyerId ?: "-", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                    Text(
+                                        log.senderUserName?.takeIf { it.isNotBlank() }
+                                            ?: log.senderUserId?.takeIf { it.isNotBlank() }
+                                            ?: log.itemTitle?.takeIf { it.isNotBlank() }
+                                            ?: log.accountName
+                                            ?: log.accountId
+                                            ?: "-",
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                     TagChip(statusCn(log.sendStatus))
                                 }
-                                if (!log.receivedMessage.isNullOrBlank()) {
-                                    Text("收到: ${log.receivedMessage}", maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                                if (!log.sourceMessage.isNullOrBlank()) {
+                                    Text("收到: ${log.sourceMessage}", maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                                 }
-                                if (!log.replyContent.isNullOrBlank()) {
-                                    Text("回复: ${log.replyContent}", maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                if (!log.replyText.isNullOrBlank()) {
+                                    Text("回复: ${log.replyText}", maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     if (!log.matchedKeyword.isNullOrBlank()) TagChip("关键词:${log.matchedKeyword}")
                                     if (!log.matchedRuleType.isNullOrBlank()) TagChip(log.matchedRuleType!!)
+                                    if (!log.replyStrategy.isNullOrBlank()) TagChip(log.replyStrategy!!)
                                     if (!log.accountId.isNullOrBlank()) TagChip(log.accountId!!)
                                 }
                                 if (!log.createdAt.isNullOrBlank()) {
                                     Text(log.createdAt, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                                 }
-                                if (!log.error.isNullOrBlank()) {
-                                    Text(log.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                val err = log.errorMessage ?: log.sendFailReason
+                                if (!err.isNullOrBlank()) {
+                                    Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
